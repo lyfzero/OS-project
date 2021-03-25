@@ -1,0 +1,189 @@
+#ifndef MAINWINDOW_H
+#define MAINWINDOW_H
+
+#include "taskinfo.h"
+
+#include <QMainWindow>
+#include <QStandardItemModel>
+#include <QTimer>
+#include <QStandardItemModel>
+#include <QItemSelection>
+#include <QScrollBar>
+#include <QKeyEvent>
+#include <QMessageBox>
+//#include <QLineSeries>
+//#include <QtCharts>
+
+#include <unistd.h>
+#include <sys/stat.h>
+#include <pwd.h>
+#include <grp.h>
+#include <dirent.h>
+#include <sys/sysinfo.h>
+#include <utmp.h>
+#include <fcntl.h>
+#include <sys/mman.h>
+
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <string>
+#include <cstring>
+#include <unordered_map>
+#include <deque>
+
+#define MAXLINE 1024
+
+namespace Ui {
+    class MainWindow;
+}
+//static constexpr int COLUMN_NUM = 13;
+//static constexpr int PID_COLUMN = 0;
+//static constexpr int PPID_COLUMN = 1;
+//static constexpr int USER_COLUMN = 2;
+//static constexpr int COMMAND_COLUMN = 3;
+//static constexpr int PRI_COLUMN = 4;
+//static constexpr int NI_COLUMN = 5;
+//static constexpr int VIRT_COLUMN = 6;
+//static constexpr int RES_COLUMN = 7;
+//static constexpr int SHR_COLUMN = 8;
+//static constexpr int S_COLUMN = 9;
+//static constexpr int CPU_COLUMN = 10;
+//static constexpr int MEM_COLUMN = 11;
+//static constexpr int TIME_COLUMN = 12;
+//static constexpr int POINT_NUM = 40;
+
+//enum SortMethodType {PID_ASC, PID_DES,
+//                     PPID_ASC, PPID_DES,
+//                     USER_ASC, USER_DES,
+//                     COMMAND_ASC, COMMAND_DES,
+//                     PRI_ASC, PRI_DES,
+//                     NI_ASC, NI_DES,
+//                     VIRT_ASC, VIRT_DES,
+//                     RES_ASC, RES_DES,
+//                     SHR_ASC, SHR_DES,
+//                     S_ASC, S_DES,
+//                     CPU_ASC, CPU_DES,
+//                     MEM_ASC, MEM_DES,
+//                     TIME_ASC, TIME_DES};
+
+class MainWindow : public QMainWindow
+{
+    Q_OBJECT
+
+public:
+    MainWindow(QWidget *parent = nullptr);
+    ~MainWindow();
+    void update();
+
+private:
+    DIR *dir_ptr;
+
+    Ui::MainWindow *ui;
+    QTimer *timer;
+    time_t lastDatetime = 0;
+    time_t timeInterval = 3000;
+
+    QStandardItemModel *model;
+    std::unordered_map<int, TaskInfo> taskInfoDict;
+    int taskTotal = 0, taskRunning = 0, taskSleeping = 0, taskStopped = 0, taskZombie = 0;
+    int matchedTaskTotal = 0;
+    int pid_max = 0;
+    int currSelectedRow = 0;
+    int currVerticalScrollValue = 0;
+    int currHorizontalScrollValue = 0;
+
+    unsigned char sortMethod = S_ASC;
+    bool searchMode = false;
+    std::string searchedCommand;
+
+    const std::unordered_map<char, int> statePriority = {{'R', 0}, {'S', 1}, {'I', 2}, {'T', 3}, {'D', 4}, {'Z', 5}};
+
+    struct sysinfo currentSysinfo;
+
+    std::deque<float> *cpuHistory;
+    float cpuUsed = 0.0;
+//    QLineSeries *cpuSeries;
+//    QChart *cpuChart;
+
+private:
+    void on_killButton_clicked();
+    void on_exitButton_clicked();
+    void on_rebootButton_clicked();
+    void on_shutdownButton_clicked();
+
+private:
+    void updateSysinfo() {
+        sysinfo(&currentSysinfo);
+    }
+    void updateTaskInfo();
+
+    void initMemoryTab();
+    void updateCpuChart();
+    void updateMemBar();
+    void updateSwpBar();
+
+    void initProcessTab();
+    void initTableModel();
+    void updateTaskLabel();
+    void updateTaskTable();
+    void updateTasksTable();
+    void sortTable();
+
+    void initSystemTab();
+    void updateCpuInfoGroup();
+    void updateOsInfoGroup();
+    void updateHostnameGroup();
+    void updateLastLoginDatetimeLabel();
+    void updateCurrentDatetimeLabel();
+
+    void initHelpTab();
+
+    static void formatCommand(char *src, char *dest);
+    static void formatSize(unsigned long l_size, char *s_size);
+    static void formatTime(unsigned long l_time, char *s_time);
+    static bool isNumeric(const std::string &s) {
+        return !s.empty() && std::all_of(s.begin(), s.end(), ::isdigit);
+    }
+};
+
+
+class TableItem: public QStandardItem
+{
+public:
+    TableItem(){}
+
+    TableItem(const QString &text)
+        :QStandardItem(text)
+    {
+    }
+
+    TableItem(const TableItem &other)
+        : QStandardItem(other)
+    {
+    }
+
+    TableItem &operator=(const TableItem &other)
+    {
+        QStandardItem::operator=(other);
+        return *this;
+    }
+
+
+    virtual bool operator<(const QStandardItem &other) const
+    {
+        const QVariant l = data(Qt::UserRole), r = other.data(Qt::UserRole);
+        if (column() == other.column()) {
+            if ((other.column() >= VIRT_COLUMN && other.column() <= SHR_COLUMN) || other.column() == TIME_COLUMN) {
+                return l.toUInt() < r.toUInt();
+            } else if (other.column() == CPU_COLUMN || other.column() == MEM_COLUMN) {
+                return l.toFloat() < r.toFloat();
+            } else if (other.column() == S_COLUMN) {
+                return l.toInt() < r.toInt();
+            }
+        }
+        return QStandardItem::operator<(other);
+    }
+};
+
+#endif // MAINWINDOW_H
