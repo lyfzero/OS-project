@@ -4,6 +4,7 @@
         "string": "cpp",
         "string_view": "cpp",
         "syscall.h": "c",
-        "typeinfo": "cpp"
+        "typeinfo": "cpp",
+        "xstring": "cpp"
     }
 }
