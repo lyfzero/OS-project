@@ -59,5 +59,5 @@ int main(int argc, char **argv) {
     close(from_fd);
     close(to_fd);
     printf("done well\n");
-    return 1;
+    return 0;
 }
